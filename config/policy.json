@@ -1,0 +1,17 @@
+{
+  "weights": {
+    "regex": 0.4,
+    "validator": 0.3,
+    "ml": 0.2,
+    "context": 0.1
+  },
+  "thresholds": {
+    "high": 0.7,
+    "low": 0.5
+  },
+  "context_cues": [
+    "account", "acct", "a/c", "acc", "id", "number", "no", "card",
+    "cvv", "valid", "thru", "expiry", "ifsc", "iban", "swift",
+    "phone", "+91", "mobile", "email", "mail"
+  ]
+}

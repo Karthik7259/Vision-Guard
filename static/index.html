@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VisionGuard - Sensitive Info Blur</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+
+        .content {
+            padding: 30px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .upload-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            border: 2px dashed #dee2e6;
+        }
+
+        .instructions {
+            background: #e8f4fd;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #3498db;
+        }
+
+        .instructions h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .instructions ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .instructions li {
+            margin-bottom: 10px;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .instructions li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #27ae60;
+            font-weight: bold;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9em;
+        }
+
+        .color-box {
+            width: 15px;
+            height: 15px;
+            border-radius: 3px;
+        }
+
+        .color-red {
+            /* High sensitivity overlay now uses cyan for better visibility */
+            background-color: rgba(0,255,255,0.35);
+            border: 2px solid #00ffff;
+        }
+
+        .color-yellow {
+            background-color: rgba(255,255,0,0.35);
+            border: 2px solid #FFD700; /* gold */
+        }
+
+        .color-manual {
+            /* Manually UNBLURRED: dashed outline with no fill */
+            background-color: transparent;
+            border: 2px dashed #00BFFF; /* deep sky blue */
+        }
+
+        #uploadInput {
+            width: 100%;
+            padding: 15px;
+            margin: 15px 0;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            background: white;
+            font-size: 16px;
+        }
+
+        #loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #error {
+            display: none;
+            background: #ffeaa7;
+            color: #d63031;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #d63031;
+            margin: 15px 0;
+        }
+
+        #canvas-container {
+            position: relative;
+            background: #2c3e50;
+            border-radius: 10px;
+            overflow: auto;
+            max-height: 600px;
+        }
+
+        canvas {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        #downloadBtn {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        #downloadBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
+        }
+
+        #downloadBtn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .feature {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .feature-icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🛡️ VisionGuard</h1>
+            <div class="subtitle">Protect Privacy with AI-Powered Sensitive Content Detection</div>
+        </header>
+
+        <div class="content">
+            <div>
+                <div class="upload-section">
+                    <h2>Upload Image</h2>
+                    <p>Upload an image containing text to automatically detect and blur sensitive information.</p>
+                    
+                    <input type="file" id="uploadInput" accept="image/*" />
+                    <button id="captureBtn" style="margin-top:10px; display:inline-block; background: linear-gradient(135deg, #2980b9 0%, #3498db 100%); color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 600;">Capture Screenshot</button>
+                    
+                    <div id="loading">
+                        <div class="spinner"></div>
+                        <p>Processing image...<br>Detecting sensitive content</p>
+                    </div>
+
+                    <div id="error"></div>
+
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="color-box color-yellow"></div>
+                            <span>Blurred Region</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="color-box color-manual"></div>
+                            <span>Manually Unblurred</span>
+                        </div>
+                    </div>
+
+                    <button id="downloadBtn" style="display:none;">Download Protected Image</button>
+                </div>
+
+                <div class="instructions">
+                    <h3>How to Use</h3>
+                    <ul>
+                        <li>Upload any image containing text (documents, screenshots, photos)</li>
+                        <li>Wait for automatic sensitive content detection</li>
+                        <li>Click on any highlighted region to toggle blur on/off</li>
+                        <li>Download your protected image when ready</li>
+                    </ul>
+                </div>
+
+                <div class="features">
+                    <div class="feature">
+                        <div class="feature-icon">🔍</div>
+                        <h4>Smart Detection</h4>
+                        <p>AI-powered OCR and pattern matching</p>
+                    </div>
+                    <div class="feature">
+                        <div class="feature-icon">🛡️</div>
+                        <h4>Privacy First</h4>
+                        <p>Automatic PII protection</p>
+                    </div>
+                    <div class="feature">
+                        <div class="feature-icon">🎮</div>
+                        <h4>Interactive</h4>
+                        <p>Manual blur control</p>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h3>Preview</h3>
+                <p>Uploaded image with detected sensitive regions highlighted.</p>
+                <div id="canvas-container">
+                    <canvas id="imageCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
