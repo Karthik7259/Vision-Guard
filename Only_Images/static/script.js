@@ -1,4 +1,5 @@
 const uploadInput = document.getElementById("uploadInput");
+const captureBtn = document.getElementById("captureBtn");
 const canvas = document.getElementById("imageCanvas");
 const ctx = canvas.getContext("2d");
 const downloadBtn = document.getElementById("downloadBtn");
@@ -34,19 +35,17 @@ canvas.addEventListener("mousemove", (event) => {
     canvas.style.cursor = over ? "pointer" : "default";
 });
 
-// Handle image upload
-uploadInput.addEventListener("change", async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
+// Shared: process a File/Blob by sending to backend and rendering result
+async function processFile(file) {
     // Reset state
     sensitiveBoxes = [];
     boxColors = [];
     blurredRegions = [];
     blurredMap.clear();
-    
+
     // UI state
     uploadInput.disabled = true;
+    if (captureBtn) captureBtn.disabled = true;
     loading.style.display = "block";
     downloadBtn.style.display = "none";
     errorDiv.style.display = "none";
@@ -61,66 +60,116 @@ uploadInput.addEventListener("change", async (e) => {
         });
 
         if (!res.ok) {
-            const errorData = await res.json();
+            const errorData = await res.json().catch(() => ({}));
             throw new Error(errorData.detail || `Server error: ${res.status}`);
         }
 
         const data = await res.json();
 
         // Load original image
-        img.onload = () => {
-            // Scale canvas if image is too big
-            const maxWidth = 800;
-            const maxHeight = 600;
-            
-            let scale = 1;
-            if (img.width > maxWidth || img.height > maxHeight) {
-                scale = Math.min(maxWidth / img.width, maxHeight / img.height);
-            }
-            
-            canvas.width = img.width * scale;
-            canvas.height = img.height * scale;
-            currentScale = scale;
+        await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = () => reject(new Error("Failed to load image"));
+            img.src = `data:image/png;base64,${data.original_image}`;
+        });
 
-            drawImageWithBoxes();
-            downloadBtn.style.display = "inline-block";
-            loading.style.display = "none";
-            uploadInput.disabled = false;
-        };
+        // Scale canvas if image is too big
+        const maxWidth = 800;
+        const maxHeight = 600;
+        let scale = 1;
+        if (img.width > maxWidth || img.height > maxHeight) {
+            scale = Math.min(maxWidth / img.width, maxHeight / img.height);
+        }
 
-        img.onerror = () => {
-            throw new Error("Failed to load image");
-        };
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        currentScale = scale;
 
-        img.src = `data:image/png;base64,${data.original_image}`;
         sensitiveBoxes = data.sensitive_boxes || [];
         boxColors = data.box_colors || [];
 
         // Load backend blurred regions as Image objects
         blurredRegions = [];
-        (data.blurred_regions || []).forEach((b64, i) => {
-            const regionImg = new Image();
-            regionImg.onload = () => {
-                blurredRegions[i] = regionImg;
-                // Redraw when new region loads
-                if (i === data.blurred_regions.length - 1) {
-                    drawImageWithBoxes();
-                }
-            };
-            regionImg.src = `data:image/png;base64,${b64}`;
-        });
+        const b64Regions = data.blurred_regions || [];
+        await Promise.all(
+            b64Regions.map((b64, i) => new Promise((resolve) => {
+                const regionImg = new Image();
+                regionImg.onload = () => { blurredRegions[i] = regionImg; resolve(); };
+                regionImg.src = `data:image/png;base64,${b64}`;
+            }))
+        );
 
+        drawImageWithBoxes();
+        downloadBtn.style.display = "inline-block";
     } catch (err) {
-        console.error("Error uploading image:", err);
-        loading.style.display = "none";
-        uploadInput.disabled = false;
-        
+        console.error("Error processing image:", err);
         if (errorDiv) {
             errorDiv.textContent = err.message || "Failed to process image. Please try again.";
             errorDiv.style.display = "block";
         }
+    } finally {
+        loading.style.display = "none";
+        uploadInput.disabled = false;
+        if (captureBtn) captureBtn.disabled = false;
     }
+}
+
+// Handle image upload
+uploadInput.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    await processFile(file);
 });
+
+// Handle screenshot capture via Screen Capture API
+if (captureBtn) {
+    captureBtn.addEventListener("click", async () => {
+        try {
+            // Some browsers allow without HTTPS for getDisplayMedia on localhost.
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                video: { cursor: "always" },
+                audio: false,
+            });
+
+            const [track] = stream.getVideoTracks();
+            const video = document.createElement("video");
+            video.srcObject = stream;
+            // Avoid showing it in the DOM; just wait for ready and grab a frame
+            await video.play();
+            // Small delay to ensure a frame is painted
+            await new Promise(r => setTimeout(r, 150));
+
+            const width = video.videoWidth;
+            const height = video.videoHeight;
+            const off = document.createElement("canvas");
+            off.width = width;
+            off.height = height;
+            const octx = off.getContext("2d");
+            octx.drawImage(video, 0, 0, width, height);
+
+            // Stop sharing immediately after capture
+            if (track) track.stop();
+            if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+
+            off.toBlob(async (blob) => {
+                if (!blob) throw new Error("Failed to capture screenshot");
+                const file = new File([blob], "screenshot.png", { type: "image/png" });
+                await processFile(file);
+            }, "image/png");
+        } catch (err) {
+            // If user cancels share picker, just ignore; otherwise show error
+            if (err && err.name === "NotAllowedError") {
+                console.info("Screen capture cancelled by user");
+                return;
+            }
+            console.error("Screen capture failed:", err);
+            if (errorDiv) {
+                errorDiv.textContent = err.message || "Screen capture failed.";
+                errorDiv.style.display = "block";
+            }
+        }
+    });
+}
 
 // Handle manual toggle on click
 canvas.onclick = (event) => {
