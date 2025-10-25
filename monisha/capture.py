@@ -1,62 +1,68 @@
 import cv2
 import numpy as np
-import mediapipe as mp
-import pyvirtualcam
 import mss
+import time
 
-# Setup MediaPipe Face Detection
-mp_face = mp.solutions.face_detection
-face_detector = mp_face.FaceDetection(model_selection=0, min_detection_confidence=0.6)
+# -------- SCREEN SETTINGS --------
+MONITOR = {"top": 0, "left": 0, "width": 1280, "height": 720}
 
-# Get screen capture region (full screen here; adjust 'monitor' for window region)
-with mss.mss() as sct:
-    monitor = sct.monitors[1]  # Primary monitor
+# -------- DNN FACE DETECTOR --------
+MODEL = "res10_300x300_ssd_iter_140000.caffemodel"
+PROTOTXT = "deploy.prototxt"
 
-    width = monitor['width']
-    height = monitor['height']
+# PROTOTXT = "deploy.prototxt"
+# MODEL = "res10_300x300_ssd_iter_140000.caffemodel"
 
-    # Start virtual camera with screen resolution
-    with pyvirtualcam.Camera(width=width, height=height, fps=20) as cam:
-        print(f'Virtual camera started: {cam.device}')
+net = cv2.dnn.readNetFromCaffe(PROTOTXT, MODEL)
+
+net = cv2.dnn.readNetFromCaffe(PROTOTXT, MODEL)
+
+def blur_faces(frame):
+    h, w = frame.shape[:2]
+    blob = cv2.dnn.blobFromImage(cv2.resize(frame, (300, 300)), 1.0,
+                                 (300, 300), (104.0, 177.0, 123.0))
+    net.setInput(blob)
+    detections = net.forward()
+
+    for i in range(detections.shape[2]):
+        confidence = detections[0, 0, i, 2]
+        if confidence > 0.5:  # filter weak detections
+            box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+            (x1, y1, x2, y2) = box.astype("int")
+
+            # Clip values to frame bounds
+            x1, y1 = max(0, x1), max(0, y1)
+            x2, y2 = min(w, x2), min(h, y2)
+
+            face = frame[y1:y2, x1:x2]
+            if face.size > 0:
+                face = cv2.GaussianBlur(face, (99, 99), 30)
+                frame[y1:y2, x1:x2] = face
+
+    return frame
+
+def main():
+    with mss.mss() as sct:
+        monitor = MONITOR
+        width, height = monitor["width"], monitor["height"]
+
+        out = cv2.VideoWriter('blurred_output.mp4', cv2.VideoWriter_fourcc(*'mp4v'), 20, (width, height))
+        print("[INFO] Recording with DNN face blurring. Press 'q' to stop.")
 
         while True:
-            # Capture screen frame
-            sct_img = sct.grab(monitor)
-            frame = np.array(sct_img)
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+            img = np.array(sct.grab(monitor))
+            frame = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+            frame = blur_faces(frame)
 
-            # Convert BGR to RGB for mediapipe
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = face_detector.process(rgb_frame)
+            cv2.imshow("Blurred Screen", frame)
+            out.write(frame)
 
-            if results.detections:
-                for detection in results.detections:
-                    bbox = detection.location_data.relative_bounding_box
-                    x, y, w, h = bbox.xmin, bbox.ymin, bbox.width, bbox.height
-                    x1 = int(x * width)
-                    y1 = int(y * height)
-                    w1 = int(w * width)
-                    h1 = int(h * height)
-
-                    # Clamp box coordinates
-                    x1 = max(x1, 0)
-                    y1 = max(y1, 0)
-                    w1 = min(w1, width - x1)
-                    h1 = min(h1, height - y1)
-
-                    # Blur face region
-                    face_roi = frame[y1:y1 + h1, x1:x1 + w1]
-                    if face_roi.size > 0:
-                        blur = cv2.GaussianBlur(face_roi, (99, 99), 30)
-                        frame[y1:y1 + h1, x1:x1 + w1] = blur
-
-            # Show optional preview window
-            cv2.imshow('Blurred Screen Capture', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
 
-            # Send frame to virtual cam
-            cam.send(frame)
-            cam.sleep_until_next_frame()
+        out.release()
+        cv2.destroyAllWindows()
+        print("[INFO] Saved as blurred_output.mp4")
 
-cv2.destroyAllWindows()
+if __name__ == "__main__":
+    main()
