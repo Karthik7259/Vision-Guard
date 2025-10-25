@@ -51,11 +51,13 @@ async def startup_event():
         reader = easyocr.Reader(['en'], gpu=False)
         # Explicitly use PyTorch framework to avoid TensorFlow/Keras issues
         ner_pipeline = pipeline("ner", model="dslim/bert-base-NER", aggregation_strategy="simple", framework="pt")
-        # PII-specific NER model (token-classification)
-        # Try multiple models in order of preference
+        
+        # PII-specific NER model - try specialized PII detection models
+        # These models are trained to detect credit cards, emails, phone numbers, IDs, etc.
         pii_models_to_try = [
-            "Jean-Baptiste/roberta-large-ner-english",  # Publicly available, good for PII
-            "dslim/bert-base-NER",  # Fallback to same as general NER
+            "lakshyakh93/deberta_finetuned_pii",  # Specialized PII detection
+            "Jean-Baptiste/roberta-large-ner-english",  # Good general NER with PII
+            "dslim/bert-base-NER",  # Fallback to general NER
         ]
         pii_ner_pipeline = None
         for model_name in pii_models_to_try:
@@ -69,7 +71,7 @@ async def startup_event():
                 continue
         
         if pii_ner_pipeline is None:
-            logger.warning("No PII NER model loaded, will rely on regex + context + general NER only")
+            logger.warning("No PII NER model loaded, will rely on general NER only")
         # Load policy config
         try:
             import json
