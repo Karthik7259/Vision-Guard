@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vision Guard - Services</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        #bg-video {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -1;
+            filter: brightness(65%) contrast(120%) saturate(50%) blur(0px);
+            opacity: 0.8;
+            background: #0f0f23;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+            padding: 2rem;
+            max-width: 1200px;
+        }
+
+        .card {
+            background: rgba(0, 255, 255, 0.05);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 2rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            background: rgba(0, 255, 255, 0.1);
+            border-color: rgba(0, 255, 255, 0.4);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(0, 255, 255, 0.2),
+                transparent
+            );
+            transition: 0.5s;
+        }
+
+        .card:hover::before {
+            left: 100%;
+        }
+
+        .card h2 {
+            color: #00ffff;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        .card p {
+            color: #99d98c;
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .card-button {
+            display: inline-block;
+            padding: 0.8rem 1.5rem;
+            background: transparent;
+            border: 1px solid #00ffff;
+            color: #00ffff;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .card-button:hover {
+            background: rgba(0, 255, 255, 0.2);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+
+        .back-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            padding: 10px 20px;
+            background: rgba(0, 255, 255, 0.2);
+            border: 1px solid #00ffff;
+            color: #00ffff;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .back-button:hover {
+            background: rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <video autoplay muted loop playsinline id="bg-video">
+        <source src="blue_boxes.mp4" type="video/mp4">
+    </video>
+
+    <a href="privacy_shield_homepage.html" class="back-button">← Back</a>
+
+    <div class="container">
+        <div class="card">
+            <h2>Blur Faces in Image</h2>
+            <p>Automatically detect and blur faces in static images. Protect privacy while maintaining image quality.</p>
+            <a href="#" class="card-button">Start Processing</a>
+        </div>
+
+        <div class="card">
+            <h2>Blur Text in Image</h2>
+            <p>Identify and blur sensitive text information in images. Perfect for documents and screenshots.</p>
+            <a href="#" class="card-button">Start Processing</a>
+        </div>
+
+        <div class="card">
+            <h2>Blur Faces in Videos</h2>
+            <p>Real-time face detection and blurring in video content. Ideal for maintaining anonymity in footage.</p>
+            <a href="#" class="card-button">Start Processing</a>
+        </div>
+
+        <div class="card">
+            <h2>Live Streaming</h2>
+            <p>Real-time face blurring for live video streams. Perfect for live broadcasts and video calls.</p>
+            <a href="#" class="card-button">Start Streaming</a>
+        </div>
+    </div>
+</body>
+</html>

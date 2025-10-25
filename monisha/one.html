@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vision Guard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            padding: 20px;
+            /* background: none; */
+        }
+
+        .dot-matrix-display {
+            display: inline-flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 40px;
+            /* background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.3); */
+        }
+
+        .letter {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 3px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 12px;
+            background: transparent;
+            border-radius: 50%;
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.1s ease-out;
+        }
+
+        .dot.active {
+            background: #00ffff;
+            box-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .dot.red {
+            background: #99d98c;
+            box-shadow: 0 0 10px #99d98c, 0 0 20px #99d98c;
+        }
+
+        .dot.hide {
+            opacity: 0;
+            transform: scale(0);
+        }
+
+        .space {
+            width: 20px;
+        }
+
+        /* @keyframes glow {
+            0%, 100% {
+                box-shadow: 0 0 50px rgba(0, 255, 255, 0.3);
+            }
+            50% {
+                box-shadow: 0 0 80px rgba(0, 255, 255, 0.6);
+            }
+        } */
+
+        .dot-matrix-display {
+            animation: glow 2s infinite;
+        }
+
+        #bg-video {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: -1; /* keeps it behind everything */
+    filter: brightness(65%) contrast(120%) saturate(50%) blur(0px);
+    opacity: 0.8; /* softens it even more */
+    background: #0f0f23;
+}
+
+
+    </style>
+</head>
+<body>
+
+      <!-- Add audio element -->
+        <audio id="bg-audio" loop>
+            <source src="bg_audio.mp3" type="audio/mp3">
+        </audio>
+
+    <div class="container">
+        <video autoplay muted loop playsinline id="bg-video">
+        <source src="blue_boxes.mp4" type="video/mp4">
+    </video>
+
+      
+        <div class="dot-matrix-display" id="display"></div>
+    </div>
+
+    <!-- Add script to handle audio autoplay -->
+    <script>
+        // Add this before your existing script
+        
+    document.addEventListener('DOMContentLoaded', function() {
+        const audio = document.getElementById('bg-audio');
+        let isPlaying = false;
+
+        // Create play button
+        const playButton = document.createElement('button');
+        playButton.innerHTML = '🎵 Play Music';
+        playButton.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background: rgba(0, 255, 255, 0.2);
+            border: 1px solid #00ffff;
+            color: #00ffff;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        `;
+
+        playButton.addEventListener('mouseover', () => {
+            playButton.style.background = 'rgba(0, 255, 255, 0.3)';
+        });
+
+        playButton.addEventListener('mouseout', () => {
+            playButton.style.background = 'rgba(0, 255, 255, 0.2)';
+        });
+
+        // Handle audio play/pause
+        playButton.addEventListener('click', function() {
+            if (!isPlaying) {
+                audio.play()
+                    .then(() => {
+                        isPlaying = true;
+                        playButton.innerHTML = '🔇 Mute';
+                    })
+                    .catch(error => console.log("Play failed:", error));
+            } else {
+                audio.pause();
+                isPlaying = false;
+                playButton.innerHTML = '🎵 Play Music';
+            }
+        });
+
+        // Add button to page
+        document.body.appendChild(playButton);
+
+        // Handle audio loop
+        audio.addEventListener('ended', function() {
+            if (isPlaying) {
+                this.currentTime = 0;
+                this.play().catch(e => console.log("Loop failed:", e));
+            }
+        });
+    });
+
+        const letterPatterns = {
+            'V': [
+                1,0,0,0,0,0,1,
+                1,0,0,0,0,0,1,
+                0,1,0,0,0,1,0,
+                0,1,0,0,0,1,0,
+                0,0,1,0,1,0,0,
+                0,0,1,0,1,0,0,
+                0,0,0,1,0,0,0
+            ],
+            'I': [
+                0,1,1,1,1,1,0,
+                0,0,0,1,0,0,0,
+                0,0,0,1,0,0,0,
+                0,0,0,1,0,0,0,
+                0,0,0,1,0,0,0,
+                0,0,0,1,0,0,0,
+                0,1,1,1,1,1,0
+            ],
+            'S': [
+                0,0,1,1,1,1,0,
+                0,1,0,0,0,0,1,
+                0,1,0,0,0,0,0,
+                0,0,1,1,1,1,0,
+                0,0,0,0,0,1,0,
+                0,1,0,0,0,1,0,
+                0,0,1,1,1,0,0
+            ],
+            'O': [
+                0,0,1,1,1,0,0,
+                0,1,0,0,0,1,0,
+                1,0,0,0,0,0,1,
+                1,0,0,0,0,0,1,
+                1,0,0,0,0,0,1,
+                0,1,0,0,0,1,0,
+                0,0,1,1,1,0,0
+            ],
+            'N': [
+                1,0,0,0,0,0,1,
+                1,1,0,0,0,0,1,
+                1,0,1,0,0,0,1,
+                1,0,0,1,0,0,1,
+                1,0,0,0,1,0,1,
+                1,0,0,0,0,1,1,
+                1,0,0,0,0,0,1
+            ],
+            'G': [
+                0,0,1,1,1,1,0,
+                0,1,0,0,0,0,1,
+                1,0,0,0,0,0,0,
+                1,0,0,1,1,1,1,
+                1,0,0,0,0,0,1,
+                0,1,0,0,0,0,1,
+                0,0,1,1,1,1,0
+            ],
+            'U': [
+                1,0,0,0,0,0,1,
+                1,0,0,0,0,0,1,
+                1,0,0,0,0,0,1,
+                1,0,0,0,0,0,1,
+                1,0,0,0,0,0,1,
+                0,1,0,0,0,1,0,
+                0,0,1,1,1,0,0
+            ],
+            'A': [
+                0,0,0,1,0,0,0,
+                0,0,1,0,1,0,0,
+                0,1,0,0,0,1,0,
+                1,0,0,0,0,0,1,
+                1,1,1,1,1,1,1,
+                1,0,0,0,0,0,1,
+                1,0,0,0,0,0,1
+            ],
+            'R': [
+                1,1,1,1,1,0,0,
+                1,0,0,0,0,1,0,
+                1,0,0,0,0,1,0,
+                1,1,1,1,1,0,0,
+                1,0,0,1,0,0,0,
+                1,0,0,0,1,0,0,
+                1,0,0,0,0,1,0
+            ],
+            'D': [
+                1,1,1,1,1,0,0,
+                1,0,0,0,0,1,0,
+                1,0,0,0,0,0,1,
+                1,0,0,0,0,0,1,
+                1,0,0,0,0,0,1,
+                1,0,0,0,0,1,0,
+                1,1,1,1,1,0,0
+            ]
+        };
+
+        const text = 'VISION  GUARD';
+        const display = document.getElementById('display');
+        const allDots = [];
+
+        // Create all letters and store dot references
+        text.split('').forEach((char, index) => {
+            if (char === ' ') {
+                const space = document.createElement('div');
+                space.className = 'space';
+                display.appendChild(space);
+            } else {
+                const letterDiv = document.createElement('div');
+                letterDiv.className = 'letter';
+                
+                const pattern = letterPatterns[char];
+                if (pattern) {
+                    pattern.forEach(bit => {
+                        const dot = document.createElement('div');
+                        dot.className = 'dot';
+                        letterDiv.appendChild(dot);
+                        
+                        if (bit) {
+                            allDots.push(dot);
+                        }
+                    });
+                }
+                
+                display.appendChild(letterDiv);
+            }
+        });
+
+        // Animation sequence
+        let currentDotIndex = 0;
+        const dotDelay = 35;        // Time between each dot appearing
+        const letterDelay = 300;    // Time between letters
+        const stayVisibleTime = 12000; // Time dots stay visible before disappearing (adjust this value as needed)
+        let dotsPerLetter = [];
+
+        // Calculate dots per letter
+        text.split('').forEach(char => {
+            if (char !== ' ') {
+                const pattern = letterPatterns[char];
+                if (pattern) {
+                    dotsPerLetter.push(pattern.filter(bit => bit === 1).length);
+                }
+            }
+        });
+        
+             // Reset all dots to initial state
+           function resetAnimation() {
+            // Reset all dots to initial state
+            allDots.forEach(dot => {
+                dot.classList.remove('active', 'red', 'hide');
+            });
+            currentDotIndex = 0;
+            
+            // Start the animation again
+            showDots();
+        }
+
+        function showDots() {
+            if (currentDotIndex < allDots.length) {
+                const currentDot = allDots[currentDotIndex];
+                currentDot.classList.add('active');
+                
+                // Turn red after 1 second
+                setTimeout(() => {
+                    if (currentDot.classList.contains('active')) {
+                        currentDot.classList.add('red');
+                    }
+                }, 1500);
+                
+                // Start hiding this dot after stayVisibleTime
+                setTimeout(() => {
+                    if (currentDot.classList.contains('active')) {
+                        currentDot.classList.remove('active');
+                        currentDot.classList.remove('red');
+                        currentDot.classList.add('hide');
+                    }
+                }, stayVisibleTime);
+                
+                currentDotIndex++;
+                
+                // Check if we've completed a letter
+                let dotsShown = currentDotIndex;
+                let letterComplete = false;
+                let cumulativeDots = 0;
+                
+                for (let i = 0; i < dotsPerLetter.length; i++) {
+                    cumulativeDots += dotsPerLetter[i];
+                    if (dotsShown === cumulativeDots) {
+                        letterComplete = true;
+                        break;
+                    }
+                }
+                
+                const nextDelay = letterComplete ? letterDelay : dotDelay;
+                setTimeout(showDots, nextDelay);
+            } else {
+                // When all dots are done, wait for a bit then restart
+                setTimeout(resetAnimation, 20000); // Wait 2 seconds before restarting
+            }
+        }
+
+        // Start initial animation
+        setTimeout(showDots, 500);
+    </script>
+
+    <!-- Add navigation button -->
+    <div id="nav-button" style="
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        padding: 10px 20px;
+        background: rgba(0, 255, 255, 0.2);
+        border: 1px solid #00ffff;
+        border-radius: 4px;
+        transition: all 0.3s ease;
+        z-index: 1000;
+    ">
+        <a href="two.html" style="
+            color: #00ffff;
+            text-decoration: none;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+        ">ENTER →</a>
+    </div>
+
+    <script>
+        // Add hover effect for the navigation button
+        const navButton = document.getElementById('nav-button');
+        navButton.addEventListener('mouseover', () => {
+            navButton.style.background = 'rgba(0, 255, 255, 0.3)';
+            navButton.style.boxShadow = '0 0 15px rgba(0, 255, 255, 0.5)';
+        });
+        
+        navButton.addEventListener('mouseout', () => {
+            navButton.style.background = 'rgba(0, 255, 255, 0.2)';
+            navButton.style.boxShadow = 'none';
+        });
+    </script>
+</body>
+</html>
