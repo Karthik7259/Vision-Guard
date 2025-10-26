@@ -1,0 +1,123 @@
+/* Cyber neon theme inspired by the provided mockups */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Courier New', monospace;
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 100%);
+  min-height: 100vh;
+  color: #99d98c;
+}
+
+/* Background video */
+#bg-video {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  z-index: -1;
+  filter: brightness(65%) contrast(120%) saturate(50%);
+  opacity: 0.8;
+  background: #0f0f23;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.20);
+  border: 1px solid rgba(0, 255, 255, 0.25);
+  border-radius: 16px;
+  box-shadow: 0 0 40px rgba(0, 255, 255, 0.15);
+  backdrop-filter: blur(2px);
+}
+
+header {
+  background: transparent;
+  border-bottom: 1px solid rgba(0, 255, 255, 0.25);
+  color: #00ffff;
+  text-align: center;
+  padding: 24px 12px;
+}
+
+h1 { font-size: 32px; letter-spacing: 1px; text-shadow: 0 0 12px rgba(0,255,255,0.4); }
+.subtitle { color: #99d98c; opacity: 0.9; }
+
+.content {
+  padding: 24px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 900px) { .content { grid-template-columns: 1fr; } }
+
+.upload-section, .instructions, .feature {
+  background: rgba(0, 255, 255, 0.06);
+  border: 1px solid rgba(0, 255, 255, 0.25);
+  color: #99d98c;
+}
+
+.upload-section { padding: 20px; border-radius: 10px; }
+.instructions { padding: 20px; border-radius: 10px; border-left: 2px solid #00ffff; }
+.feature { border-radius: 8px; }
+
+#uploadInput {
+  width: 100%;
+  padding: 12px 14px;
+  margin: 12px 0;
+  background: rgba(0, 0, 0, 0.35);
+  color: #00ffff;
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 8px;
+}
+
+button, .btn {
+  background: transparent;
+  color: #00ffff;
+  border: 1px solid #00ffff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: 'Courier New', monospace;
+  transition: all 0.25s ease;
+}
+
+button:hover, .btn:hover {
+  background: rgba(0, 255, 255, 0.18);
+  box-shadow: 0 0 18px rgba(0, 255, 255, 0.25);
+}
+
+#downloadBtn:disabled {
+  opacity: 0.5;
+  border-color: rgba(255,255,255,0.25);
+  color: rgba(255,255,255,0.7);
+  cursor: not-allowed;
+}
+
+#canvas-container {
+  position: relative;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(0, 255, 255, 0.25);
+  border-radius: 12px;
+  overflow: auto;
+  max-height: 640px;
+}
+
+/* Legend colors to match neon scheme */
+.color-yellow { background-color: rgba(0,255,255,0.25); border: 2px solid #00ffff; }
+.color-manual { background-color: transparent; border: 2px dashed #00ffff; }
+
+/* Loading spinner in cyan */
+.spinner { border: 4px solid rgba(255,255,255,0.15); border-top: 4px solid #00ffff; }
+
+/* Text colors */
+h2, h3, h4 { color: #00ffff; }
+.instructions h3 { color: #00ffff; }
+.instructions li { color: #99d98c; }
+
+/* Subtle glow animation for container */
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 40px rgba(0, 255, 255, 0.15); }
+  50% { box-shadow: 0 0 60px rgba(0, 255, 255, 0.30); }
+}
+.container { animation: glow 3s ease-in-out infinite; }

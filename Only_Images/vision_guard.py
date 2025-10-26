@@ -13,6 +13,13 @@ import numpy as np
 from PIL import Image
 from typing import List, Dict, Any
 
+# Import orientation detector as optional fallback for vertical cards
+try:
+    from orientation_detector import detect_vertical_credit_card
+    ORIENTATION_DETECTOR_AVAILABLE = True
+except ImportError:
+    ORIENTATION_DETECTOR_AVAILABLE = False
+
 
 
 def process_image(input_path: str, output_path: str, reader: Any, ner_pipeline: Any, debug: bool = True,
@@ -37,6 +44,8 @@ def process_image(input_path: str, output_path: str, reader: Any, ner_pipeline: 
     img = cv2.imread(input_path)
     if img is None:
         raise FileNotFoundError(f"Failed to read image: {input_path}")
+    # Keep an original copy early for later use
+    img_original = img.copy()
 
     # OCR
     ocr_results = reader.readtext(img, detail=1, paragraph=False)
@@ -108,7 +117,7 @@ def process_image(input_path: str, output_path: str, reader: Any, ner_pipeline: 
                 if debug:
                     print(f"NER error on '{text_str}': {e}")
 
-        # PII-specific NER pipeline - detect ONLY financial info (account numbers, routing, etc.)
+        # PII-specific NER pipeline - detect ONLY allowed financial info (account/routing) per policy
         if pii_ner_pipeline is not None:
             try:
                 pii_preds = pii_ner_pipeline(text_str)
@@ -116,11 +125,9 @@ def process_image(input_path: str, output_path: str, reader: Any, ner_pipeline: 
                     entity = pred.get('entity_group') or pred.get('entity', '')
                     score = pred.get('score', 0.0)
                     
-                    # ONLY blur financial PII with higher threshold (0.5)
-                    # Filter to: account numbers, routing numbers, credit cards, bank info
+                    # ONLY blur account and routing. Exclude CREDIT_CARD/CARD/CVV/etc. (handled by orientation detector)
                     financial_entities = [
-                        'ACCOUNT', 'ROUTING', 'BANK', 'CREDIT_CARD', 'CARD',
-                        'ACCOUNT_NUMBER', 'ROUTING_NUMBER', 'IBAN', 'SWIFT'
+                        'ACCOUNT', 'ACCOUNT_NUMBER', 'ROUTING', 'ROUTING_NUMBER'
                     ]
                     
                     entity_upper = entity.upper()
@@ -170,7 +177,7 @@ def process_image(input_path: str, output_path: str, reader: Any, ner_pipeline: 
                 window = line_indices[start_idx:start_idx + window_size]
                 combined_text = " ".join(tokens[i]["text"] for i in window)
                 
-                # Apply PII NER to combined text - ONLY for financial info
+                # Apply PII NER to combined text - ONLY for allowed financial info (account/routing)
                 if pii_ner_pipeline is not None:
                     try:
                         pii_preds = pii_ner_pipeline(combined_text)
@@ -178,10 +185,9 @@ def process_image(input_path: str, output_path: str, reader: Any, ner_pipeline: 
                             entity = pred.get('entity_group') or pred.get('entity', '')
                             score = pred.get('score', 0.0)
                             
-                            # Filter to financial entities only
+                            # Filter to allowed financial entities only (exclude CARD/CVV)
                             financial_entities = [
-                                'ACCOUNT', 'ROUTING', 'BANK', 'CREDIT_CARD', 'CARD',
-                                'ACCOUNT_NUMBER', 'ROUTING_NUMBER', 'IBAN', 'SWIFT'
+                                'ACCOUNT', 'ACCOUNT_NUMBER', 'ROUTING', 'ROUTING_NUMBER'
                             ]
                             
                             entity_upper = entity.upper()
@@ -206,7 +212,7 @@ def process_image(input_path: str, output_path: str, reader: Any, ner_pipeline: 
                         if debug:
                             print(f"PII-NER error on combined text '{combined_text}': {e}")
 
-    # Third pass: Detect long numeric sequences (routing/account numbers, check numbers)
+    # Third pass: Detect long numeric sequences (routing/account numbers, check numbers with heuristics)
     # These are highly specific patterns that NER might miss
     for idx, tok in enumerate(tokens):
         if idx in blur_indices:
@@ -240,19 +246,31 @@ def process_image(input_path: str, output_path: str, reader: Any, ner_pipeline: 
             if debug:
                 print(f"  Account number detected: '{text_str}'")
         
-        # Check numbers: exactly 4 digits (but avoid dates/years/zip codes)
+        # Check numbers: exactly 4 digits (avoid dates like 07/21 or years like 1991)
         elif len(digits_only) == 4:
-            # Simple heuristic: if it's near a dollar amount or on a check, it's likely a check number
-            # For now, blur all 4-digit sequences on checks
-            blur_indices.add(idx)
-            debug_flags.append({
-                "text": text_str,
-                "reasons": ["CHECK_NUMBER"],
-                "conf": float(tok["conf"]),
-                "ml_confidence": 0.8,
-            })
-            if debug:
-                print(f"  Check number detected: '{text_str}'")
+            raw = text_str
+            looks_like_date = any(sep in raw for sep in ['/', '-', ':'])
+            # Year-like (1900-2099)
+            try:
+                val = int(digits_only)
+            except ValueError:
+                val = -1
+            looks_like_year = 1900 <= val <= 2099
+            # MMYY pattern
+            mm = int(digits_only[:2]) if digits_only[:2].isdigit() else -1
+            yy = int(digits_only[2:]) if digits_only[2:].isdigit() else -1
+            looks_like_mmyy = 1 <= mm <= 12 and 0 <= yy <= 99
+
+            if not (looks_like_date or looks_like_year or looks_like_mmyy):
+                blur_indices.add(idx)
+                debug_flags.append({
+                    "text": text_str,
+                    "reasons": ["CHECK_NUMBER"],
+                    "conf": float(tok["conf"]),
+                    "ml_confidence": 0.8,
+                })
+                if debug:
+                    print(f"  Check number detected: '{text_str}'")
 
     # Build blur boxes from selected token indices
     sensitive_boxes: List[List[int]] = []
@@ -262,8 +280,37 @@ def process_image(input_path: str, output_path: str, reader: Any, ner_pipeline: 
         h = max(1, y2 - y1)
         sensitive_boxes.append([x1, y1, w, h])
 
-    # Store original image
-    img_original = img.copy()
+    # FALLBACK: If no financial PII detected by main pipeline, try orientation detector
+    # This handles vertical/tilted credit card numbers
+    has_financial_pii = any(
+        any(r in ["ROUTING_NUMBER", "ACCOUNT_NUMBER", "CHECK_NUMBER"] 
+            for r in flag.get("reasons", []))
+        for flag in debug_flags
+    )
+    
+    if not has_financial_pii and ORIENTATION_DETECTOR_AVAILABLE:
+        if debug:
+            print("\n--- No financial PII found, trying orientation detector for vertical cards ---")
+        try:
+            # For demo/test images, relax Luhn validation to catch placeholder numbers
+            vertical_boxes = detect_vertical_credit_card(img, reader, debug=debug, require_luhn=False)
+            if vertical_boxes:
+                if debug:
+                    print(f"✓ Orientation detector found {len(vertical_boxes)} vertical credit card(s)")
+                for box in vertical_boxes:
+                    x, y, w, h = box
+                    sensitive_boxes.append([x, y, w, h])
+                    debug_flags.append({
+                        "text": f"<vertical-card-{len(sensitive_boxes)}>",
+                        "reasons": ["VERTICAL_CREDIT_CARD"],
+                        "conf": 1.0,
+                        "ml_confidence": 1.0,
+                    })
+        except Exception as e:
+            if debug:
+                print(f"Orientation detector error: {e}")
+
+    # Store original image for web response
     blur_states: List[bool] = [True] * len(sensitive_boxes)
     
     # Apply blur to detected boxes

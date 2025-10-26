@@ -223,12 +223,12 @@ function drawImageWithBoxes() {
             }
 
             // Single color for all blurred regions: yellow/gold overlay
-            const overlay = "rgba(255,215,0,0.35)"; // gold/yellow
+            const overlay = "rgba(0,255,255,0.25)"; // neon cyan
             ctx.fillStyle = overlay;
             ctx.fillRect(scaledX1, scaledY1, scaledW, scaledH);
 
-            // Strong border for visibility (gold)
-            ctx.strokeStyle = "#FFD700";
+            // Neon cyan border
+            ctx.strokeStyle = "#00ffff";
             ctx.lineWidth = 3;
             ctx.strokeRect(scaledX1, scaledY1, scaledW, scaledH);
         } else {
