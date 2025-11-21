@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blurred and Unblurred Images</title>
+    <style>
+        .image-container {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+        }
+        .image-container img {
+            max-width: 48%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Blurred and Unblurred Images</h1>
+    <form id="captureForm">
+        <label for="tab_id">Select Tab:</label>
+        <select id="tab_id" name="tab_id">
+            <option value="1">Tab 1</option>
+            <option value="2">Tab 2</option>
+            <option value="3">Tab 3</option>
+            <!-- Add more options as needed -->
+        </select>
+        <label for="blur">Blur Faces:</label>
+        <input type="checkbox" id="blur" name="blur">
+        <button type="submit">Capture Tab</button>
+    </form>
+    <div class="image-container">
+        <img id="captured_img" src="" alt="Captured Image">
+    </div>
+
+    <script>
+        document.getElementById('captureForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const tabId = document.getElementById('tab_id').value;
+            const blur = document.getElementById('blur').checked;
+
+            fetch('/capture_tab', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `tab_id=${tabId}&blur=${blur}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('captured_img').src = `data:image/jpeg;base64,${data.image}`;
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    </script>
+</body>
+</html>

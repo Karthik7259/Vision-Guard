@@ -1,0 +1,13 @@
+{
+  "name": "client-side-edge-redaction",
+  "version": "1.0.0",
+  "description": "Client-side edge redaction for privacy-preserving video processing",
+  "main": "app.js",
+  "scripts": {
+    "start": "http-server"
+  },
+  "dependencies": {
+    "@mediapipe/face_detection": "^0.4.1646425229",
+    "@tensorflow/tfjs": "^4.22.0"
+  }
+}
